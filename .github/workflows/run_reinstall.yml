@@ -1,9 +1,7 @@
 name: 运行主程序
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "reinstall.*"
+
 jobs:
   run:
     name: 运行主程序
