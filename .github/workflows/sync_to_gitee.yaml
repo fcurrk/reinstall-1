@@ -1,5 +1,7 @@
 name: 同步到 Gitee
-on: workflow_dispatch:
+on:
+  workflow_dispatch:
+
 jobs:
   sync:
     name: 同步到 Gitee
