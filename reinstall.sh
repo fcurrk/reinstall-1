@@ -9,6 +9,7 @@ github_proxy=https://mirror.ghproxy.com/https://raw.githubusercontent.com
 export LC_ALL=C
 
 # 处理部分用户用 su 切换成 root 导致环境变量没 sbin 目录
+# 不要漏了最后的 $PATH，否则会找不到 windows 系统程序例如 diskpart
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
 this_script=$(realpath "$0")
@@ -739,7 +740,7 @@ setos() {
 
         # 不要用https 因为甲骨文云arm initramfs阶段不会从硬件同步时钟，导致访问https出错
         if is_in_china; then
-            mirror=http://mirrors.tuna.tsinghua.edu.cn/alpine/v$releasever
+            mirror=http://mirrors.ustc.edu.cn/alpine/v$releasever
         else
             mirror=http://dl-cdn.alpinelinux.org/alpine/v$releasever
         fi
@@ -786,7 +787,7 @@ setos() {
             if is_in_china; then
                 # ftp.cn.debian.org 不在国内还严重丢包
                 # https://www.itdog.cn/ping/ftp.cn.debian.org
-                deb_hostname=mirrors.tuna.tsinghua.edu.cn
+                deb_hostname=mirrors.ustc.edu.cn
             else
                 deb_hostname=deb.debian.org # fastly
             fi
@@ -814,7 +815,7 @@ setos() {
         else
             # 传统安装
             if is_in_china; then
-                deb_hostname=mirrors.tuna.tsinghua.edu.cn
+                deb_hostname=mirrors.ustc.edu.cn
             else
                 # http.kali.org 没有 ipv6 地址
                 # http.kali.org (geoip 重定向) 到 kali.download (cf)
@@ -866,8 +867,8 @@ setos() {
             # 传统安装
             if is_in_china; then
                 case "$basearch" in
-                "x86_64") mirror=https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases/$releasever ;;
-                "aarch64") mirror=https://mirrors.tuna.tsinghua.edu.cn/ubuntu-cdimage/releases/$releasever/release ;;
+                "x86_64") mirror=https://mirrors.ustc.edu.cn/ubuntu-releases/$releasever ;;
+                "aarch64") mirror=https://mirrors.ustc.edu.cn/ubuntu-cdimage/releases/$releasever/release ;;
                 esac
             else
                 case "$basearch" in
@@ -891,13 +892,13 @@ setos() {
     setos_arch() {
         if [ "$basearch" = "x86_64" ]; then
             if is_in_china; then
-                mirror=https://mirrors.tuna.tsinghua.edu.cn/archlinux
+                mirror=https://mirrors.ustc.edu.cn/archlinux
             else
                 mirror=https://geo.mirror.pkgbuild.com # geoip
             fi
         else
             if is_in_china; then
-                mirror=https://mirrors.tuna.tsinghua.edu.cn/archlinuxarm
+                mirror=https://mirrors.ustc.edu.cn/archlinuxarm
             else
                 # https 证书有问题
                 mirror=http://mirror.archlinuxarm.org # geoip
@@ -920,7 +921,7 @@ setos() {
 
     setos_gentoo() {
         if is_in_china; then
-            mirror=https://mirrors.tuna.tsinghua.edu.cn/gentoo
+            mirror=https://mirrors.ustc.edu.cn/gentoo
         else
             mirror=https://distfiles.gentoo.org # cdn77
         fi
@@ -1435,6 +1436,14 @@ is_efi() {
     fi
 }
 
+is_grub_dir_linked() {
+    # cloudcone 重装前/重装后(方法1)
+    [ "$(readlink -f /boot/grub/grub.cfg)" = /boot/grub2/grub.cfg ] ||
+        [ "$(readlink -f /boot/grub2/grub.cfg)" = /boot/grub/grub.cfg ] ||
+        # cloudcone 重装后(方法2)
+        { [ -f /boot/grub2/grub.cfg ] && [ "$(cat /boot/grub2/grub.cfg)" = 'chainloader (hd0)+1' ]; }
+}
+
 is_secure_boot_enabled() {
     if is_efi; then
         if is_in_windows; then
@@ -1490,16 +1499,7 @@ find_main_disk() {
         # diskpart 命令结果
         # 磁盘 ID: E5FDE61C
         # 磁盘 ID: {92CF6564-9B2E-4348-A3BD-D84E3507EBD7}
-        if false; then
-            # https://github.com/bin456789/reinstall/issues/76
-            disk_index=$(wmic logicaldisk where "DeviceID='$c:'" assoc:value /resultclass:Win32_DiskPartition |
-                grep 'DiskIndex=' | cut -d= -f2 | del_cr)
-            select_cmd="select disk $disk_index"
-        else
-            volume_index=$(printf "list volume" | diskpart | grep 'Partition' | awk '$3=="'$c'" {print $2}')
-            select_cmd="select volume $volume_index"
-        fi
-        main_disk=$(printf "%s\n%s" "$select_cmd" "uniqueid disk" | diskpart |
+        main_disk=$(printf "%s\n%s" "select volume $c" "uniqueid disk" | diskpart |
             tail -1 | awk '{print $NF}' | sed 's,[{}],,g' | del_cr)
     else
         # centos7下测试     lsblk --inverse $mapper | grep -w disk     grub2-probe -t disk /
@@ -1780,7 +1780,7 @@ install_grub_linux_efi() {
         fedora_ver=40
 
         if is_in_china; then
-            mirror=https://mirrors.tuna.tsinghua.edu.cn/fedora
+            mirror=https://mirrors.ustc.edu.cn/fedora
         else
             mirror=https://mirror.fcix.net/fedora/linux
         fi
@@ -1807,7 +1807,7 @@ install_grub_win() {
     grub_ver=2.06
     # ftpmirror.gnu.org 是 geoip 重定向，不是 cdn
     # 有可能重定义到一个拉黑了部分 IP 的服务器
-    is_in_china && grub_url=https://mirrors.tuna.tsinghua.edu.cn/gnu/grub/grub-$grub_ver-for-windows.zip ||
+    is_in_china && grub_url=https://mirrors.ustc.edu.cn/gnu/grub/grub-$grub_ver-for-windows.zip ||
         grub_url=https://ftpmirror.gnu.org/gnu/grub/grub-$grub_ver-for-windows.zip
     curl -Lo $tmp/grub.zip $grub_url
     # unzip -qo $tmp/grub.zip
@@ -1835,7 +1835,7 @@ install_grub_win() {
         if [ "$basearch" = aarch64 ]; then
             # 3.20 是 grub 2.12，可能会有问题
             alpine_ver=3.19
-            is_in_china && mirror=http://mirrors.tuna.tsinghua.edu.cn/alpine || mirror=https://dl-cdn.alpinelinux.org/alpine
+            is_in_china && mirror=http://mirrors.ustc.edu.cn/alpine || mirror=https://dl-cdn.alpinelinux.org/alpine
             grub_efi_apk=$(curl -L $mirror/v$alpine_ver/main/aarch64/ | grep -oP 'grub-efi-.*?apk' | head -1)
             mkdir -p $tmp/grub-efi
             curl -L "$mirror/v$alpine_ver/main/aarch64/$grub_efi_apk" | tar xz --warning=no-unknown-keyword -C $tmp/grub-efi/
@@ -1857,7 +1857,7 @@ install_grub_win() {
         if false; then
             # g2ldr.mbr
             # 部分国内机无法访问 ftp.cn.debian.org
-            is_in_china && host=mirrors.tuna.tsinghua.edu.cn || host=deb.debian.org
+            is_in_china && host=mirrors.ustc.edu.cn || host=deb.debian.org
             curl -LO http://$host/debian/tools/win32-loader/stable/win32-loader.exe
             7z x win32-loader.exe 'g2ldr.mbr' -o$tmp/win32-loader -r -y -bso0
             find $tmp/win32-loader -name 'g2ldr.mbr' -exec cp {} /cygdrive/$c/ \;
@@ -1918,6 +1918,11 @@ build_extra_cmdline() {
         extra_cmdline+=" extra.mirrorlist='$finalos_mirrorlist'"
     elif [ -n "$nextos_mirrorlist" ]; then
         extra_cmdline+=" extra.mirrorlist='$nextos_mirrorlist'"
+    fi
+
+    # cloudcone 特殊处理
+    if is_grub_dir_linked; then
+        finalos_cmdline+=" extra.link_grub_dir=1"
     fi
 }
 
@@ -2961,10 +2966,49 @@ if is_use_grub; then
         fi
     fi
 
+    # cloudcone 从光驱的 grub 启动，再加载硬盘的 grub.cfg
+    # menuentry "Grub 2" --id grub2 {
+    #         set root=(hd0,msdos1)
+    #         configfile /boot/grub2/grub.cfg
+    # }
+
+    # 加载后 $prefix 依然是光驱的 (hd96)/boot/grub
+    # 导致找不到 $prefix 目录的 grubenv，因此读取不到 next_entry
+    # 以下方法为 cloudcone 重新加载 grubenv
+
+    # 需查找 2*2 个文件夹
+    # 分区：系统 / boot
+    # 文件夹：grub / grub2
+    # shellcheck disable=SC2121,SC2154
+    # cloudcone debian 能用但 ubuntu 模板用不了
+    # ubuntu 模板甚至没显示 reinstall menuentry
+    load_grubenv_if_not_loaded() {
+        if ! [ -s $prefix/grubenv ]; then
+            for dir in /boot/grub /boot/grub2 /grub /grub2; do
+                set grubenv="($root)$dir/grubenv"
+                if [ -s $grubenv ]; then
+                    load_env --file $grubenv
+                    if [ "${next_entry}" ]; then
+                        set default="${next_entry}"
+                        set next_entry=
+                        save_env --file $grubenv next_entry
+                    else
+                        set default="0"
+                    fi
+                    return
+                fi
+            done
+        fi
+    }
+
     # 生成 grub 配置
     # 实测 centos 7 lvm 要手动加载 lvm 模块
     echo $target_cfg
-    del_empty_lines <<EOF | tee $target_cfg
+
+    get_function_content load_grubenv_if_not_loaded >$target_cfg
+
+    del_empty_lines <<EOF | tee -a $target_cfg
+set timeout_style=menu
 set timeout=5
 menuentry "$(get_entry_name)" {
     $(! is_in_windows && echo 'insmod lvm')
@@ -2984,6 +3028,17 @@ fi
 
 info 'info'
 echo "$distro $releasever"
+
+if ! { is_netboot_xyz || is_use_dd; }; then
+    if [ "$distro" = windows ]; then
+        username="administrator"
+    else
+        username="root"
+    fi
+    echo "Username: $username"
+    echo "Password: 123@@@"
+fi
+
 if is_netboot_xyz; then
     echo 'Reboot to start netboot.xyz.'
 elif is_alpine_live; then
@@ -2991,14 +3046,6 @@ elif is_alpine_live; then
 elif is_use_dd; then
     echo 'Reboot to start DD.'
 else
-    if [ "$distro" = windows ]; then
-        username="administrator"
-    else
-        username="root"
-    fi
-
-    echo "Username: $username"
-    echo "Password: 123@@@"
     echo "Reboot to start the installation."
 fi
 
